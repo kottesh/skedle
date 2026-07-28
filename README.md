@@ -5,7 +5,13 @@ A minimal timetable viewer for CIT schedules.
 ## Local run
 
 ```bash
-npm start
+npm run dev
 ```
 
-Open `http://localhost:5173`, log in, and view the timetable.
+Open the Wrangler local URL, log in, and view the timetable.
+
+## Deploy
+
+```bash
+npm run deploy
+```
