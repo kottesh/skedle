@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Timetable</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="stage">
+      <details class="controls-shell">
+        <summary aria-label="Show controls">
+          <span class="controls__ctx" id="ctx">timetable</span>
+        </summary>
+        <div class="controls">
+          <button id="prev" class="ghost" aria-label="Previous day">‹</button>
+          <button id="today" class="ghost">Today</button>
+          <button id="next" class="ghost" aria-label="Next day">›</button>
+          <input id="date" type="date" class="datefield" aria-label="Pick a date" />
+          <details class="tok">
+            <summary aria-label="Login">login</summary>
+            <button class="sheet-backdrop" id="login-backdrop" type="button" aria-label="Close login"></button>
+            <form class="tok__pop" id="login-form">
+              <label for="registerno">Register number</label>
+              <input id="registerno" name="registerno" type="text" autocomplete="username" />
+              <label for="password">Password</label>
+              <input id="password" name="password" type="password" autocomplete="current-password" />
+              <div class="login-actions">
+                <button id="login" type="submit" class="ghost">Login</button>
+                <button id="logout" type="button" class="ghost" hidden>Logout</button>
+              </div>
+              <p class="tok__note" id="login-note">Sign in is saved on this browser.</p>
+            </form>
+          </details>
+        </div>
+      </details>
+
+      <div class="day">
+        <div class="day__head">
+          <div class="day__weekday" id="weekday">—</div>
+          <div class="day__date"><span id="d-day">–</span><span id="d-mon">—</span></div>
+          <div class="day__count" id="count"></div>
+        </div>
+      </div>
+
+      <section class="notice" id="notice" role="status" hidden></section>
+
+      <section class="rail" id="rail" aria-label="Day schedule"></section>
+
+      <p class="status" id="status"></p>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
