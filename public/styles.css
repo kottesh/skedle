@@ -285,6 +285,8 @@ body {
   padding-bottom: 0.1rem;
 }
 .chev {
+  position: relative;
+  z-index: 2;
   display: grid;
   place-items: center;
   width: 1.9rem;
@@ -312,6 +314,7 @@ body {
   font-size: 0.76rem;
   line-height: 1.12;
   white-space: nowrap;
+  overflow: hidden;
   padding: 0.28rem 0.55rem;
   border-radius: 9px;
   cursor: pointer;
@@ -754,7 +757,7 @@ body {
     gap: 0.3rem 0.5rem;
   }
   .day__ctrl {
-    gap: 0.05rem;
+    gap: 0.2rem;
   }
   .chev {
     width: 1.65rem;
