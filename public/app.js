@@ -38,9 +38,13 @@ function addDays(ymd, n) {
 
 let date = todayYmd();
 const tokenKey = "cit_api_token";
+const nameKey = "cit_user_name";
 
 function savedToken() {
   return localStorage.getItem(tokenKey) || "";
+}
+function savedName() {
+  return localStorage.getItem(nameKey) || "";
 }
 function setLoginNote(text) {
   const n = $("login-note");
@@ -48,13 +52,19 @@ function setLoginNote(text) {
 }
 function refreshLoginState() {
   const signed = Boolean(savedToken());
+  const name = savedName();
+  const fields = $("login-fields");
+  const info = $("account-info");
+  if (fields) fields.hidden = signed;
+  if (info) info.hidden = !signed;
+  if (signed) $("account-name").textContent = name ? titleCase(name) : "Signed in";
   setLoginNote(signed ? "Signed in on this browser." : "Not signed in.");
-  const logout = $("logout");
-  if (logout) logout.hidden = !signed;
+  const note = $("login-note");
+  if (note) note.hidden = signed;
   const tok = document.querySelector(".tok");
   if (tok) tok.classList.toggle("tok--signed", signed);
-  const summary = tok && tok.querySelector("summary");
-  if (summary) summary.setAttribute("aria-label", signed ? "Account, signed in" : "Account");
+  const trigger = $("account-toggle");
+  if (trigger) trigger.setAttribute("aria-label", signed ? "Account, signed in" : "Account");
 }
 
 $("login-form").addEventListener("submit", async (e) => {
@@ -73,9 +83,10 @@ $("login-form").addEventListener("submit", async (e) => {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Login failed");
     localStorage.setItem(tokenKey, data.token);
+    localStorage.setItem(nameKey, data.name || "");
     clearLoginFields();
     refreshLoginState();
-    document.querySelector(".tok")?.removeAttribute("open");
+    closeLoginSheet();
     load();
   } catch (err) {
     setLoginNote((err && err.message) || "Login failed");
@@ -85,21 +96,31 @@ function clearLoginFields() {
   $("registerno").value = "";
   $("password").value = "";
 }
-function closeLoginSheet() {
-  document.querySelector(".tok")?.removeAttribute("open");
-}
-$("login-backdrop").addEventListener("click", closeLoginSheet);
-document.addEventListener("pointerdown", (e) => {
+function setLoginSheet(open) {
   const tok = document.querySelector(".tok");
-  if (!tok?.hasAttribute("open")) return;
-  if (tok.contains(e.target)) return;
-  closeLoginSheet();
+  const form = $("login-form");
+  const trigger = $("account-toggle");
+  tok?.classList.toggle("tok--open", open);
+  trigger.setAttribute("aria-expanded", String(open));
+  form.setAttribute("aria-hidden", String(!open));
+  form.inert = !open;
+  if (!open && form.contains(document.activeElement)) trigger.focus();
+}
+function closeLoginSheet() {
+  setLoginSheet(false);
+}
+$("account-toggle").addEventListener("click", () => {
+  const open = !document.querySelector(".tok")?.classList.contains("tok--open");
+  setLoginSheet(open);
 });
+$("login-close").addEventListener("click", closeLoginSheet);
+$("login-backdrop").addEventListener("click", closeLoginSheet);
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") closeLoginSheet();
 });
 $("logout").addEventListener("click", () => {
   localStorage.removeItem(tokenKey);
+  localStorage.removeItem(nameKey);
   clearLoginFields();
   refreshLoginState();
   closeLoginSheet();
@@ -107,6 +128,7 @@ $("logout").addEventListener("click", () => {
   showNotice("Signed out.", "Log in to view your timetable.");
 });
 refreshLoginState();
+setHeader(parseYmd(date), null);
 
 $("date").addEventListener("change", (e) => {
   if (e.target.value) {
@@ -148,12 +170,26 @@ function clearNotice() {
   rail.hidden = false;
 }
 
+function greetWord() {
+  const h = new Date().getHours();
+  return h < 12 ? "good morning" : h < 17 ? "good afternoon" : "good evening";
+}
+function firstName(n) {
+  return String(n).trim().split(/\s+/)[0].toLowerCase();
+}
+
 function setHeader(d, payload) {
   $("weekday").textContent = WEEKDAY[d.getDay()];
   $("d-day").textContent = String(d.getDate()).padStart(2, "0");
   $("d-mon").textContent = `${MON[d.getMonth()]} ${d.getFullYear()}`;
   const s = payload && payload.student;
-  $("ctx").textContent = s && s.course ? `${s.course.toLowerCase()} · sem ${s.semester}` : "timetable";
+  const first = firstName(savedName());
+  const greetEl = $("greet");
+  if (greetEl) {
+    greetEl.hidden = !first;
+    if (first) greetEl.textContent = `${greetWord()}, ${titleCase(first)}`;
+  }
+  $("ctx").textContent = s && s.course ? `${s.course.toLowerCase()} · sem ${s.semester}` : "skedle";
   const n = payload && payload.sessions ? payload.sessions.length : 0;
   const cnt = $("count");
   if (cnt) cnt.textContent = n ? `${n} session${n === 1 ? "" : "s"} scheduled` : "";
@@ -394,6 +430,25 @@ async function load() {
       headers: token ? { "X-Cit-Token": token } : {},
     });
     const payload = await res.json();
+    if (res.status === 401) {
+      statusEl.textContent = "";
+      if (token) {
+        localStorage.removeItem(tokenKey);
+        localStorage.removeItem(nameKey);
+        refreshLoginState();
+        setHeader(parseYmd(date), null);
+        setLoginNote("Your session expired. Please sign in again.");
+        setLoginSheet(true);
+        showNotice("Session expired", "Please sign in again to view your timetable.");
+      } else {
+        setHeader(parseYmd(date), null);
+        showNotice(
+          payload.error || "Please log in to view your timetable.",
+          "Sign in from the account icon (top right), then pick the day again."
+        );
+      }
+      return;
+    }
     if (!res.ok) {
       setHeader(parseYmd(date), null);
       statusEl.textContent = "";

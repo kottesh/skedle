@@ -34,7 +34,20 @@ body {
 }
 
 .ctx {
-  margin: 0 0 0.85rem;
+  margin: 0 0 0.95rem;
+}
+.ctx__greet {
+  margin: 0 0 0.3rem;
+  font-family: "Fraunces", serif;
+  font-size: clamp(1.05rem, 3.5vw, 1.2rem);
+  font-weight: 500;
+  font-style: italic;
+  letter-spacing: -0.005em;
+  line-height: 1.2;
+  color: var(--ink);
+}
+.ctx__meta {
+  margin: 0;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.72rem;
   letter-spacing: 0.05em;
@@ -57,7 +70,8 @@ body {
   border-color: var(--faint);
 }
 .ghost:focus-visible,
-.tok summary:focus-visible,
+.tok__trigger:focus-visible,
+.tok__close:focus-visible,
 .chev:focus-visible,
 .today:focus-visible {
   outline: 2px solid var(--accent);
@@ -93,29 +107,29 @@ body {
   right: clamp(0.8rem, 2.5vw, 1.3rem);
   z-index: 30;
 }
-.tok summary {
-  list-style: none;
+.tok__trigger {
   position: relative;
+  z-index: 55;
   display: grid;
   place-items: center;
   width: 2.35rem;
   height: 2.35rem;
+  padding: 0;
+  border: 0;
   border-radius: 50%;
+  background: transparent;
   color: var(--muted);
   cursor: pointer;
   transition: color 0.14s, background 0.14s;
 }
-.tok summary::-webkit-details-marker {
-  display: none;
-}
-.tok summary:hover {
+.tok__trigger:hover {
   color: var(--ink);
   background: var(--rule-soft);
 }
-.tok--signed summary {
+.tok--signed .tok__trigger {
   color: var(--accent);
 }
-.tok--signed summary::after {
+.tok--signed .tok__trigger::after {
   content: "";
   position: absolute;
   top: 0.32rem;
@@ -142,29 +156,68 @@ body {
   border-radius: 12px;
   padding: 0.95rem;
   box-shadow: 0 22px 54px -28px rgba(26, 26, 23, 0.55);
+  transform: translateY(-7px) scale(0.98);
   transform-origin: top right;
-  animation: pop-in 160ms cubic-bezier(.2,.8,.2,1) both;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    transform 170ms cubic-bezier(.2, .8, .2, 1),
+    opacity 130ms ease,
+    visibility 0s linear 170ms;
 }
-@keyframes pop-in {
-  from { opacity: 0; transform: translateY(-6px) scale(.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+.tok--open .tok__pop {
+  transform: translateY(0) scale(1);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition:
+    transform 170ms cubic-bezier(.2, .8, .2, 1),
+    opacity 130ms ease,
+    visibility 0s;
 }
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.tok__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
-@keyframes sheet-up {
-  from {
-    opacity: 0;
-    transform: translateY(100%);
-  }
-  45% {
-    opacity: 1;
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.tok__close {
+  display: grid;
+  place-items: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+.tok__close:hover {
+  color: var(--ink);
+  background: var(--rule-soft);
+}
+.account__name {
+  font-family: "Fraunces", serif;
+  font-size: 1.35rem;
+  font-weight: 500;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+.account__meta {
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+.account .login-actions {
+  margin-top: 0.8rem;
 }
 .tok__pop label {
   display: block;
@@ -592,19 +645,26 @@ body {
   .ghost {
     padding: 0.34rem 0.5rem;
   }
-  .tok[open] .sheet-backdrop {
+  .sheet-backdrop {
     display: block;
     position: fixed;
     inset: 0;
     z-index: 40;
-    border: 0;
-    padding: 0;
     background: rgba(26, 26, 23, 0.24);
-    animation: fade-in 140ms ease both;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition:
+      opacity 180ms ease,
+      visibility 0s linear 260ms;
   }
-  .tok[open] summary {
-    position: relative;
-    z-index: 55;
+  .tok--open .sheet-backdrop {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      opacity 180ms ease,
+      visibility 0s;
   }
   .tok__pop {
     position: fixed;
@@ -619,9 +679,26 @@ body {
     border-radius: 18px 18px 0 0;
     padding: 1.1rem 1.1rem calc(1.2rem + env(safe-area-inset-bottom));
     box-shadow: 0 -24px 60px -30px rgba(26, 26, 23, 0.55);
+    transform: translateY(calc(100% + 12px)) scale(0.985);
     transform-origin: bottom center;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
     will-change: transform, opacity;
-    animation: sheet-up 250ms cubic-bezier(.3, 1.25, .4, 1) both;
+    transition:
+      transform 260ms cubic-bezier(.22, .9, .3, 1),
+      opacity 170ms ease,
+      visibility 0s linear 260ms;
+  }
+  .tok--open .tok__pop {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition:
+      transform 260ms cubic-bezier(.22, .9, .3, 1),
+      opacity 170ms ease,
+      visibility 0s;
   }
   .stage {
     padding-left: 1rem;
@@ -694,8 +771,8 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .tok__pop,
-  .tok[open] .sheet-backdrop {
-    animation-duration: 1ms !important;
+  .sheet-backdrop {
+    transition-duration: 1ms !important;
   }
 }
 

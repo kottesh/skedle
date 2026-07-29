@@ -83,12 +83,33 @@ function isNoClassMessage(msg: string): boolean {
   return /no\s+day\s+order\s+found|day\s+order\s+not\s+found|no\s+time\s*table|no\s+classes?/i.test(msg);
 }
 
+function isAuthMessage(msg: string): boolean {
+  return /invalid\s+api|please\s+login|login\s+again|unauthor/i.test(msg);
+}
+
 function publicError(msg: string, fallback = "Could not load your timetable."): string {
-  if (/invalid\s+api|please\s+login|login\s+again|unauthor/i.test(msg)) {
+  if (isAuthMessage(msg)) {
     return "Please log in again to view your timetable.";
   }
   if (/required|validation/i.test(msg)) return "Something needed is missing. Try again.";
   return fallback;
+}
+
+function studentName(user: unknown): string {
+  const u = user as any;
+  const candidates = [
+    u?.name,
+    u?.student_name,
+    u?.studentName,
+    u?.stuname,
+    u?.fullname,
+    u?.first_name,
+    u?.student?.name,
+  ];
+  for (const c of candidates) {
+    if (typeof c === "string" && c.trim()) return c.trim().replace(/\s+/g, " ");
+  }
+  return "";
 }
 
 interface DayPayload {
@@ -99,6 +120,7 @@ interface DayPayload {
   breaks: typeof BREAKS;
   student?: { course?: string; degree?: string; semester?: number; section?: string };
   error?: string;
+  unauthorized?: boolean;
 }
 
 async function buildDay(token: string, date: string): Promise<DayPayload> {
@@ -118,6 +140,11 @@ async function buildDay(token: string, date: string): Promise<DayPayload> {
   if (!tt.json || !isOk((tt.json as any).status)) {
     const msg = tt.json ? messageText(tt.json) : "";
     if (isNoClassMessage(msg)) return base;
+    if (isAuthMessage(msg) || tt.status === 401 || tt.status === 403) {
+      base.error = "Please log in again to view your timetable.";
+      base.unauthorized = true;
+      return base;
+    }
     base.error = publicError(msg);
     return base;
   }
@@ -144,7 +171,8 @@ export default {
     if (url.pathname === "/api/login" && request.method === "POST") {
       try {
         const body = (await request.json()) as any;
-        return json(await loginCit(String(body.registerno || ""), String(body.password || "")));
+        const session = await loginCit(String(body.registerno || ""), String(body.password || ""));
+        return json({ token: session.token, name: studentName(session.user) });
       } catch {
         return json({ error: "Login failed. Check your details and try again." }, 401);
       }
@@ -158,7 +186,11 @@ export default {
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return json({ error: "Bad date" }, 400);
 
       try {
-        return json(await buildDay(token, date));
+        const payload = await buildDay(token, date);
+        if (payload.unauthorized) {
+          return json({ error: payload.error || "Please log in again to view your timetable." }, 401);
+        }
+        return json(payload);
       } catch {
         return json({ error: "Could not load your timetable. Try again." }, 502);
       }
