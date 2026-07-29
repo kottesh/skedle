@@ -12,7 +12,7 @@
   --warn-wash: #f6ece4;
 
   --px-min: 2.4px;
-  --gut: 66px;
+  --gut: 70px;
 
   font-family: "Inter", system-ui, sans-serif;
   color: var(--ink);
@@ -277,6 +277,7 @@ body {
   text-align: right;
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.7rem;
+  white-space: nowrap;
   color: var(--faint);
 }
 
@@ -349,6 +350,12 @@ body {
 }
 .ev--absent::before {
   background: var(--warn);
+}
+.ev--now {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--rule));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent),
+    0 14px 30px -26px rgba(26, 26, 23, 0.5);
 }
 .ev__top {
   display: flex;
@@ -476,6 +483,7 @@ body {
   font-family: "IBM Plex Mono", monospace;
   font-size: 0.7rem;
   font-weight: 500;
+  white-space: nowrap;
   color: var(--warn);
 }
 
@@ -520,6 +528,9 @@ body {
 }
 
 @media (max-width: 560px) {
+  :root {
+    --gut: 60px;
+  }
   .controls-shell {
     margin-bottom: 1.25rem;
   }
@@ -596,70 +607,36 @@ body {
   .day__count {
     grid-column: 1 / -1;
   }
-}
-
-.rail[data-view="list"] {
-  position: static;
-  margin-left: 0;
-  border-left: none;
-  height: auto !important;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-.rail[data-view="list"] .tick,
-.rail[data-view="list"] .gap {
-  display: none;
-}
-.rail[data-view="list"] .ev {
-  position: static !important;
-  left: auto !important;
-  right: auto !important;
-  width: auto !important;
-  height: auto !important;
-  min-height: 0;
-  padding: 0.75rem 0.9rem 0.7rem 1rem;
-}
-.rail[data-view="list"] .ev .ev__dur {
-  margin-top: 0.5rem;
-}
-.rail[data-view="list"] .ev--short .ev__dur {
-  display: block;
-}
-.rail[data-view="list"] .ev__title {
-  font-size: 1rem;
-}
-.rail[data-view="list"] .ev__meta {
-  flex-direction: row;
-  flex-wrap: wrap;
-  font-size: 0.74rem;
-}
-.slot-break {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  margin: 0.2rem 0;
-  font-size: 0.66rem;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--faint);
-}
-.slot-break::before,
-.slot-break::after {
-  content: "";
-  flex: 1;
-  border-top: 1px dashed var(--rule);
-}
-.parallel-tag {
-  align-self: flex-start;
-  margin: 0.1rem 0 -0.2rem;
-  font-size: 0.62rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--accent);
-}
-.ev--parallel {
-  border-style: solid;
+  .tick__label,
+  .now__label {
+    font-size: 0.6rem;
+  }
+  .gap__label {
+    left: 8px;
+    font-size: 0.6rem;
+  }
+  .ev {
+    border-radius: 10px;
+    padding: 0.55rem 0.7rem 0.55rem 0.75rem;
+  }
+  .ev__time {
+    font-size: 0.64rem;
+  }
+  .ev__title {
+    font-size: 0.94rem;
+  }
+  .ev__meta {
+    font-size: 0.7rem;
+  }
+  .ev[style*="width"] {
+    padding: 0.5rem 0.55rem;
+  }
+  .ev[style*="width"] .ev__title {
+    font-size: 0.8rem;
+  }
+  .ev[style*="width"] .ev__dur {
+    display: none;
+  }
 }
 
 @media (max-width: 380px) {

@@ -134,6 +134,7 @@ function showNotice(title, detail = "") {
   if (cnt) cnt.textContent = "";
   rail.hidden = true;
   rail.innerHTML = "";
+  rail.dataset.view = "none";
   noticeEl.hidden = false;
   noticeEl.innerHTML = `
     <div class="notice__title">${escape(title)}</div>
@@ -194,6 +195,7 @@ function render(payload) {
   if (!sessions.length && !payload.error) {
     const cnt = $("count");
     if (cnt) cnt.textContent = "";
+    rail.dataset.view = "empty";
     rail.style.height = "auto";
     rail.style.borderLeft = "none";
     rail.style.marginLeft = "0";
@@ -204,12 +206,6 @@ function render(payload) {
   rail.style.marginLeft = "";
 
   const laid = layoutColumns(sessions);
-  const mobile = window.matchMedia("(max-width: 560px)").matches;
-
-  if (mobile) {
-    renderList(payload, laid);
-    return;
-  }
   renderRail(payload, laid);
 }
 
@@ -249,7 +245,7 @@ function renderRail(payload, laid) {
     tick.style.top = g.y(toMin(t)) + "px";
     const label = document.createElement("span");
     label.className = "tick__label";
-    label.textContent = fmt(t).replace(":00", "");
+    label.textContent = fmt(t);
     tick.appendChild(label);
     rail.appendChild(tick);
   }
@@ -278,70 +274,65 @@ function renderRail(payload, laid) {
       el.style.width = `calc((100% - 12px) * ${w / 100})`;
       el.style.right = "auto";
     }
+    el.dataset.start = s.start;
+    el.dataset.end = s.end;
     el.innerHTML = eventHTML(s);
     rail.appendChild(el);
   }
 
-  const todayStr = todayYmd();
-  if (date === todayStr) {
+  startNowTracking(g);
+
+  if (window.matchMedia("(max-width: 560px)").matches) {
     const now = new Date();
     const nowMin = now.getHours() * 60 + now.getMinutes();
-    if (nowMin >= g.dayStart && nowMin <= g.dayEnd) {
-      const line = document.createElement("div");
-      line.className = "now";
-      line.style.top = g.y(nowMin) + "px";
-      const nl = document.createElement("span");
-      nl.className = "now__label";
-      nl.textContent = fmt(
-        `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`
-      );
-      line.appendChild(nl);
-      rail.appendChild(line);
+    if (date === todayYmd() && nowMin >= g.dayStart && nowMin <= g.dayEnd) {
+      requestAnimationFrame(() => {
+        const line = rail.querySelector(".now");
+        if (!line) return;
+        const y = line.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.32;
+        const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" });
+      });
     }
   }
 }
 
-function renderList(payload, laid) {
-  rail.dataset.view = "list";
-  rail.style.height = "auto";
+let nowTimer = null;
 
-  const ordered = [...laid].sort(
-    (a, b) => toMin(a.start) - toMin(b.start) || a.col - b.col
+function paintNow(g) {
+  if (rail.dataset.view !== "rail") return;
+  const now = new Date();
+  const nowMin = now.getHours() * 60 + now.getMinutes();
+  const inRange = date === todayYmd() && nowMin >= g.dayStart && nowMin <= g.dayEnd;
+
+  for (const ev of rail.querySelectorAll(".ev")) {
+    const on = inRange && toMin(ev.dataset.start) <= nowMin && nowMin < toMin(ev.dataset.end);
+    ev.classList.toggle("ev--now", on);
+  }
+
+  let line = rail.querySelector(".now");
+  if (!inRange) {
+    if (line) line.remove();
+    return;
+  }
+  if (!line) {
+    line = document.createElement("div");
+    line.className = "now";
+    const label = document.createElement("span");
+    label.className = "now__label";
+    line.appendChild(label);
+    rail.appendChild(line);
+  }
+  line.style.top = g.y(nowMin) + "px";
+  line.querySelector(".now__label").textContent = fmt(
+    `${pad2(now.getHours())}:${pad2(now.getMinutes())}`
   );
-  const breaks = (payload.breaks || []).slice().sort((a, b) => toMin(a.start) - toMin(b.start));
+}
 
-  let bi = 0;
-  let prevKey = null;
-  for (const s of ordered) {
-    while (bi < breaks.length && toMin(breaks[bi].start) <= toMin(s.start)) {
-      const d = document.createElement("div");
-      d.className = "slot-break";
-      d.textContent = `${breaks[bi].label} · ${fmt(breaks[bi].start)}–${fmt(breaks[bi].end)}`;
-      rail.appendChild(d);
-      bi++;
-    }
-    const key = s.start + s.end;
-    const isParallel = s.cols > 1;
-    const firstOfParallel = isParallel && key !== prevKey;
-    if (firstOfParallel) {
-      const t = document.createElement("div");
-      t.className = "parallel-tag";
-      t.textContent = `Parallel · ${fmt(s.start)}–${fmt(s.end)}`;
-      rail.appendChild(t);
-    }
-    prevKey = key;
-    const el = document.createElement("div");
-    el.className = evClass(s, isParallel ? "ev--parallel" : "");
-    el.innerHTML = eventHTML(s);
-    rail.appendChild(el);
-  }
-  while (bi < breaks.length) {
-    const d = document.createElement("div");
-    d.className = "slot-break";
-    d.textContent = `${breaks[bi].label} · ${fmt(breaks[bi].start)}–${fmt(breaks[bi].end)}`;
-    rail.appendChild(d);
-    bi++;
-  }
+function startNowTracking(g) {
+  paintNow(g);
+  clearInterval(nowTimer);
+  nowTimer = setInterval(() => paintNow(g), 30000);
 }
 
 function layoutColumns(sessions) {
@@ -393,6 +384,7 @@ function escape(s) {
 
 async function load() {
   const token = savedToken().trim();
+  rail.dataset.view = "loading";
   rail.innerHTML = `<div class="rail__loading">Loading…</div>`;
   statusEl.textContent = "";
   try {
@@ -412,26 +404,6 @@ async function load() {
     statusEl.textContent = "Could not reach the server.";
   }
 }
-
-let lastPayload = null;
-const _render = render;
-render = function (p) {
-  lastPayload = p;
-  return _render(p);
-};
-let rzt;
-let wasMobile = window.matchMedia("(max-width: 560px)").matches;
-window.addEventListener("resize", () => {
-  clearTimeout(rzt);
-  rzt = setTimeout(() => {
-    const isMobile = window.matchMedia("(max-width: 560px)").matches;
-    if (isMobile !== wasMobile && lastPayload) {
-      wasMobile = isMobile;
-      rail.innerHTML = "";
-      render(lastPayload);
-    }
-  }, 150);
-});
 
 sync();
 load();
