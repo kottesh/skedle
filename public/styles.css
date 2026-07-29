@@ -102,7 +102,7 @@ body {
 }
 
 .tok {
-  position: fixed;
+  position: absolute;
   top: clamp(0.8rem, 2.5vw, 1.3rem);
   right: clamp(0.8rem, 2.5vw, 1.3rem);
   z-index: 30;
