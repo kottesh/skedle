@@ -13,39 +13,50 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <main class="stage">
-      <details class="controls-shell">
-        <summary aria-label="Show controls">
-          <span class="controls__ctx" id="ctx">timetable</span>
-        </summary>
-        <div class="controls">
-          <button id="prev" class="ghost" aria-label="Previous day">‹</button>
-          <button id="today" class="ghost">Today</button>
-          <button id="next" class="ghost" aria-label="Next day">›</button>
-          <input id="date" type="date" class="datefield" aria-label="Pick a date" />
-          <details class="tok">
-            <summary aria-label="Login">login</summary>
-            <button class="sheet-backdrop" id="login-backdrop" type="button" aria-label="Close login"></button>
-            <form class="tok__pop" id="login-form">
-              <label for="registerno">Register number</label>
-              <input id="registerno" name="registerno" type="text" autocomplete="username" />
-              <label for="password">Password</label>
-              <input id="password" name="password" type="password" autocomplete="current-password" />
-              <div class="login-actions">
-                <button id="login" type="submit" class="ghost">Login</button>
-                <button id="logout" type="button" class="ghost" hidden>Logout</button>
-              </div>
-              <p class="tok__note" id="login-note">Sign in is saved on this browser.</p>
-            </form>
-          </details>
+    <details class="tok">
+      <summary aria-label="Account">
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="3.6" />
+          <path d="M4.8 20.4c1.3-3.8 4-5.7 7.2-5.7s5.9 1.9 7.2 5.7" />
+        </svg>
+      </summary>
+      <button class="sheet-backdrop" id="login-backdrop" type="button" aria-label="Close login"></button>
+      <form class="tok__pop" id="login-form">
+        <label for="registerno">Register number</label>
+        <input id="registerno" name="registerno" type="text" autocomplete="username" />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" />
+        <div class="login-actions">
+          <button id="login" type="submit" class="ghost">Login</button>
+          <button id="logout" type="button" class="ghost" hidden>Logout</button>
         </div>
-      </details>
+        <p class="tok__note" id="login-note">Sign in is saved on this browser.</p>
+      </form>
+    </details>
+
+    <main class="stage">
+      <p class="ctx" id="ctx">timetable</p>
 
       <div class="day">
         <div class="day__head">
           <div class="day__weekday" id="weekday">—</div>
-          <div class="day__date"><span id="d-day">–</span><span id="d-mon">—</span></div>
-          <div class="day__count" id="count"></div>
+          <div class="day__ctrl">
+            <button id="prev" class="chev" type="button" aria-label="Previous day">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+            </button>
+            <div class="day__date">
+              <span id="d-day">–</span>
+              <span id="d-mon">—</span>
+              <input id="date" type="date" class="datefield" aria-label="Pick a date" />
+            </div>
+            <button id="next" class="chev" type="button" aria-label="Next day">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+            </button>
+          </div>
+          <div class="day__sub">
+            <span class="day__count" id="count"></span>
+            <button id="today" class="today" type="button" hidden>today</button>
+          </div>
         </div>
       </div>
 

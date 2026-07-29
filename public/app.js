@@ -51,6 +51,10 @@ function refreshLoginState() {
   setLoginNote(signed ? "Signed in on this browser." : "Not signed in.");
   const logout = $("logout");
   if (logout) logout.hidden = !signed;
+  const tok = document.querySelector(".tok");
+  if (tok) tok.classList.toggle("tok--signed", signed);
+  const summary = tok && tok.querySelector("summary");
+  if (summary) summary.setAttribute("aria-label", signed ? "Account, signed in" : "Account");
 }
 
 $("login-form").addEventListener("submit", async (e) => {
@@ -72,7 +76,6 @@ $("login-form").addEventListener("submit", async (e) => {
     clearLoginFields();
     refreshLoginState();
     document.querySelector(".tok")?.removeAttribute("open");
-    document.querySelector(".controls-shell")?.removeAttribute("open");
     load();
   } catch (err) {
     setLoginNote((err && err.message) || "Login failed");
@@ -100,13 +103,11 @@ $("logout").addEventListener("click", () => {
   clearLoginFields();
   refreshLoginState();
   closeLoginSheet();
-  document.querySelector(".controls-shell")?.removeAttribute("open");
   setHeader(parseYmd(date), null);
   showNotice("Signed out.", "Log in to view your timetable.");
 });
 refreshLoginState();
 
-$("date").value = date;
 $("date").addEventListener("change", (e) => {
   if (e.target.value) {
     date = e.target.value;
@@ -127,6 +128,7 @@ function shift(n) {
 }
 function sync() {
   $("date").value = date;
+  $("today").hidden = date === todayYmd();
 }
 
 function showNotice(title, detail = "") {
@@ -187,7 +189,7 @@ function render(payload) {
   statusEl.textContent = "";
 
   if (payload.error) {
-    showNotice(payload.error, "Open controls and log in, then pick the day again.");
+    showNotice(payload.error, "Sign in from the account icon (top right), then pick the day again.");
     return;
   }
 
@@ -395,7 +397,7 @@ async function load() {
     if (!res.ok) {
       setHeader(parseYmd(date), null);
       statusEl.textContent = "";
-      showNotice(payload.error || `Error ${res.status}`, "Open controls and log in, then pick the day again.");
+      showNotice(payload.error || `Error ${res.status}`, "Sign in from the account icon (top right), then pick the day again.");
       return;
     }
     render(payload);
