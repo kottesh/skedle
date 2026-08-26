@@ -14,74 +14,106 @@
   </head>
   <body>
     <div class="tok">
-      <button class="tok__trigger" id="account-toggle" type="button" aria-label="Account" aria-expanded="false" aria-controls="login-form">
+      <button
+        class="tok__trigger"
+        id="account-toggle"
+        type="button"
+        aria-label="Account"
+        aria-expanded="false"
+        aria-controls="login-form"
+      >
         <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="8" r="3.6" />
           <path d="M4.8 20.4c1.3-3.8 4-5.7 7.2-5.7s5.9 1.9 7.2 5.7" />
         </svg>
       </button>
-      <div class="sheet-backdrop" id="login-backdrop" aria-hidden="true"></div>
-      <form class="tok__pop" id="login-form" aria-hidden="true" inert>
+      <div class="sheet-backdrop" id="login-backdrop"></div>
+      <form
+        class="tok__pop"
+        id="login-form"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="login-heading"
+        aria-hidden="true"
+        inert
+      >
         <div class="tok__head">
-          <span>Account</span>
+          <h2 class="tok__title" id="login-heading">Account</h2>
           <button class="tok__close" id="login-close" type="button" aria-label="Close account panel">
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>
           </button>
         </div>
         <div class="account" id="account-info" hidden>
           <div class="account__name" id="account-name">—</div>
-          <div class="account__meta">Signed in on this browser.</div>
+          <div class="account__meta">Signed in on this browser session.</div>
           <div class="login-actions">
-            <button id="logout" type="button" class="ghost">Logout</button>
+            <button id="logout" type="button" class="ghost">Log out</button>
           </div>
         </div>
         <div id="login-fields">
           <label for="registerno">Register number</label>
-          <input id="registerno" name="registerno" type="text" autocomplete="username" />
+          <input
+            id="registerno"
+            name="registerno"
+            type="text"
+            autocomplete="username"
+            autocapitalize="none"
+            autocorrect="off"
+            spellcheck="false"
+            required
+            aria-describedby="login-note"
+          />
           <label for="password">Password</label>
-          <input id="password" name="password" type="password" autocomplete="current-password" />
+          <input
+            id="password"
+            name="password"
+            type="password"
+            autocomplete="current-password"
+            required
+            aria-describedby="login-note"
+          />
           <div class="login-actions">
             <button id="login" type="submit" class="ghost">Login</button>
           </div>
         </div>
-        <p class="tok__note" id="login-note">Sign in is saved on this browser.</p>
+        <p class="tok__note" id="login-note" role="status" aria-live="polite">Sign in is saved on this browser session.</p>
       </form>
     </div>
 
     <main class="stage">
-      <div class="ctx">
+      <header class="ctx">
         <p class="ctx__greet" id="greet" hidden></p>
         <p class="ctx__meta" id="ctx">skedle</p>
-      </div>
+      </header>
 
-      <div class="day">
+      <section class="day" aria-label="Selected day">
         <div class="day__head">
-          <div class="day__weekday" id="weekday">—</div>
-          <div class="day__ctrl">
+          <h1 class="day__weekday" id="weekday">—</h1>
+          <nav class="day__ctrl" aria-label="Change day">
             <button id="prev" class="chev" type="button" aria-label="Previous day">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
             </button>
             <div class="day__date">
-              <span id="d-day">–</span>
-              <span id="d-mon">—</span>
+              <span id="d-day" aria-hidden="true">–</span>
+              <span id="d-mon" aria-hidden="true">—</span>
               <input id="date" type="date" class="datefield" aria-label="Pick a date" />
             </div>
             <button id="next" class="chev" type="button" aria-label="Next day">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
             </button>
-          </div>
+          </nav>
           <div class="day__sub">
-            <span class="day__count" id="count"></span>
+            <span class="day__count" id="count" role="status" aria-live="polite"></span>
             <button id="today" class="today" type="button" hidden>today</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <section class="notice" id="notice" role="status" hidden></section>
+      <section class="notice" id="notice" role="status" aria-live="polite" hidden></section>
 
-      <section class="rail" id="rail" aria-label="Day schedule"></section>
+      <section class="rail" id="rail" aria-label="Day schedule" aria-live="polite"></section>
 
-      <p class="status" id="status"></p>
+      <p class="status" id="status" role="alert"></p>
     </main>
 
     <script type="module" src="/app.js"></script>

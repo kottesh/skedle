@@ -1,3 +1,21 @@
+import type {
+  Attendance,
+  AttendancePart,
+  AttendanceStatus,
+  BellPeriod,
+  Kind,
+  ScheduleBreak,
+  Session,
+} from "./contracts";
+
+export type {
+  Attendance,
+  AttendancePart,
+  AttendanceStatus,
+  Kind,
+  Session,
+} from "./contracts";
+
 export interface RawClassRow {
   hour_value: number;
   day_value?: number;
@@ -8,11 +26,13 @@ export interface RawClassRow {
   section?: string;
   part?: number;
   employee_name?: string; // real staff name
-  leave_type?: string; // "a" absent, "od" on-duty, etc.
+  leave_type?: string | null; // "p" present, "a" absent, "od" on-duty, null unmarked
+  marked_by?: string | null;
+  marked_subject?: string | null;
   room_id?: string | null;
 }
 
-export const BELL: Record<number, { start: string; end: string }> = {
+export const BELL: Record<number, BellPeriod> = {
   1: { start: "09:00", end: "09:55" },
   2: { start: "09:55", end: "10:50" },
   3: { start: "11:05", end: "12:00" },
@@ -22,28 +42,12 @@ export const BELL: Record<number, { start: string; end: string }> = {
   7: { start: "15:50", end: "16:45" },
 };
 
-export const BREAKS = [
+export const BREAKS: ScheduleBreak[] = [
   { label: "Break", start: "10:50", end: "11:05" },
   { label: "Lunch", start: "12:55", end: "14:00" },
 ];
 
-export type Kind = "theory" | "lab" | "activity";
-
-export interface Session {
-  hourStart: number; // first hour_value in this block
-  hourEnd: number; // last hour_value (labs merge consecutive hours)
-  start: string; // "HH:MM"
-  end: string; // "HH:MM"
-  title: string; // cleaned subject name
-  code: string;
-  short: string;
-  kind: Kind;
-  staff: string[]; // de-duplicated staff names
-  section?: string;
-  leave?: "absent" | "od" | null;
-}
-
-const clean = (s?: string) => (s ?? "").replace(/\s+/g, " ").trim();
+const clean = (s?: string | null): string => (s ?? "").replace(/\s+/g, " ").trim();
 
 function classify(row: RawClassRow): Kind {
   const t = (row.subject_type ?? "").toLowerCase();
@@ -54,14 +58,69 @@ function classify(row: RawClassRow): Kind {
   return "theory";
 }
 
-function leaveOf(row: RawClassRow): "absent" | "od" | null {
-  const l = (row.leave_type ?? "").toLowerCase();
+function attendanceStatusOf(row: RawClassRow): Exclude<AttendanceStatus, "mixed"> {
+  const l = clean(row.leave_type).toLowerCase();
+  if (l === "p") return "present";
   if (l === "a") return "absent";
-  if (l === "od") return "od";
-  return null;
+  if (l === "od") return "on-duty";
+  return "unmarked";
+}
+
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === "string" && value.length > 0;
+
+function attendanceOf(cells: { hour: number; row: RawClassRow }[]): Attendance {
+  const parts: AttendancePart[] = cells.map(({ hour, row }) => {
+    const part: AttendancePart = { hour, status: attendanceStatusOf(row) };
+    const markedBy = clean(row.marked_by);
+    const markedSubject = clean(row.marked_subject);
+    if (markedBy) part.markedBy = markedBy;
+    if (markedSubject) part.markedSubject = markedSubject;
+    return part;
+  });
+
+  const statuses = [...new Set(parts.map((p) => p.status))];
+  const markedBy = [...new Set(parts.map((p) => p.markedBy).filter(isNonEmptyString))].sort();
+  const markedSubject = [
+    ...new Set(parts.map((p) => p.markedSubject).filter(isNonEmptyString)),
+  ].sort();
+
+  return {
+    status: statuses.length === 1 ? statuses[0]! : "mixed",
+    markedBy,
+    markedSubject,
+    parts,
+  };
+}
+
+interface Cell {
+  hour: number;
+  row: RawClassRow;
+  staff: Set<string>;
+  code: string;
+}
+
+/**
+ * Two cells may merge into one session only when:
+ *  - both are labs (labs span multiple bell hours; theory/activity do not merge), and
+ *  - they share the same subject code, and
+ *  - they are actually time-adjacent (previous bell end === next bell start).
+ *
+ * The time-adjacency check prevents merging across breaks/lunch — e.g. hour 4
+ * (ends 12:55) is NOT adjacent to hour 5 (starts 14:00).
+ */
+function canMerge(previous: Cell, current: Cell): boolean {
+  if (classify(previous.row) !== "lab" || classify(current.row) !== "lab") return false;
+  if (previous.code !== current.code) return false;
+  const prevBell = BELL[previous.hour];
+  const curBell = BELL[current.hour];
+  if (!prevBell || !curBell) return false;
+  return prevBell.end === curBell.start;
 }
 
 export function toSessions(rows: RawClassRow[]): Session[] {
+  // De-duplicate rows that describe the same subject in the same hour, while
+  // accumulating the (possibly multiple) staff names.
   const byKey = new Map<string, { hour: number; row: RawClassRow; staff: Set<string> }>();
   for (const r of rows) {
     if (!BELL[r.hour_value]) continue;
@@ -76,7 +135,6 @@ export function toSessions(rows: RawClassRow[]): Session[] {
     }
   }
 
-  type Cell = { hour: number; row: RawClassRow; staff: Set<string>; code: string };
   const cells: Cell[] = [...byKey.values()].map((v) => ({
     ...v,
     code: clean(v.row.subject_code) || clean(v.row.subject_name) || `h${v.hour}`,
@@ -93,30 +151,36 @@ export function toSessions(rows: RawClassRow[]): Session[] {
   for (const group of byCode.values()) {
     group.sort((a, b) => a.hour - b.hour);
     let run: Cell[] = [];
-    const flush = () => {
+
+    const flush = (): void => {
       if (!run.length) return;
-      const first = run[0];
-      const last = run[run.length - 1];
+      const first = run[0]!;
+      const last = run[run.length - 1]!;
       const staff = new Set<string>();
       run.forEach((c) => c.staff.forEach((s) => staff.add(s)));
+      const firstBell = BELL[first.hour]!;
+      const lastBell = BELL[last.hour]!;
       sessions.push({
         hourStart: first.hour,
         hourEnd: last.hour,
-        start: BELL[first.hour].start,
-        end: BELL[last.hour].end,
+        start: firstBell.start,
+        end: lastBell.end,
         title: clean(first.row.subject_name) || first.code,
         code: clean(first.row.subject_code),
         short: clean(first.row.short_name),
         kind: classify(first.row),
         staff: [...staff].sort(),
         section: clean(first.row.section) || undefined,
-        leave: leaveOf(first.row),
+        attendance: attendanceOf(run),
       });
       run = [];
     };
+
     for (const c of group) {
-      if (!run.length || c.hour === run[run.length - 1].hour + 1) run.push(c);
-      else {
+      const prev = run[run.length - 1];
+      if (!prev || canMerge(prev, c)) {
+        run.push(c);
+      } else {
         flush();
         run.push(c);
       }
@@ -128,7 +192,13 @@ export function toSessions(rows: RawClassRow[]): Session[] {
   return sessions;
 }
 
+const TIME_RE = /^([01]?\d|2[0-3]):([0-5]\d)$/;
+
+/** Parse "HH:MM" into minutes-since-midnight. Returns NaN for invalid input. */
 export const toMin = (hhmm: string): number => {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
+  const match = TIME_RE.exec(hhmm);
+  if (!match) return Number.NaN;
+  return Number(match[1]) * 60 + Number(match[2]);
 };
+
+export const isValidTime = (hhmm: string): boolean => TIME_RE.test(hhmm);
