@@ -137,6 +137,48 @@ function buildSessionCard(session: LaidSession): HTMLElement {
   return card;
 }
 
+interface ClusterMember {
+  session: LaidSession;
+  card: HTMLElement;
+  stackTop?: number;
+  stackHeight?: number;
+}
+
+interface Cluster {
+  start: number;
+  end: number;
+  members: ClusterMember[];
+  stacked?: boolean;
+  resolvedHeight?: number;
+}
+
+const CARD_GAP = 6; // vertical gap subtracted from a slot so stacked cards breathe
+
+/**
+ * Group cards whose time ranges overlap. Members of a cluster are laid out in
+ * parallel columns, so the cluster must be tall enough for its tallest column.
+ */
+function buildClusters(members: ClusterMember[]): Cluster[] {
+  const clusters: Cluster[] = [];
+  const sorted = [...members].sort((a, b) => a.session.s0 - b.session.s0);
+  for (const m of sorted) {
+    const last = clusters[clusters.length - 1];
+    if (last && m.session.s0 < last.end) {
+      last.end = Math.max(last.end, m.session.s1);
+      last.members.push(m);
+    } else {
+      clusters.push({ start: m.session.s0, end: m.session.s1, members: [m] });
+    }
+  }
+  return clusters;
+}
+
+// Below this per-column width (px) side-by-side columns become unreadable, so
+// overlapping sessions stack vertically instead.
+const MIN_COLUMN_WIDTH = 150;
+const STACK_GAP = 8; // vertical gap between stacked cards within a cluster
+const LEFT_INSET = 12; // matches `.ev { left: 12px }`
+
 export function renderRail(rail: HTMLElement, payload: DayPayload): RailGeometry {
   rail.replaceChildren();
   rail.dataset.view = "rail";
@@ -144,8 +186,111 @@ export function renderRail(rail: HTMLElement, payload: DayPayload): RailGeometry
   rail.removeAttribute("aria-busy");
 
   const laid = layoutColumns(payload.sessions);
-  const g = railGeometry(payload.bell);
+  const base = railGeometry(payload.bell);
+
+  // ---- pass 1: build cards (unpositioned) so we can measure natural height ----
+  const list = el("ol", "ev-list");
+  list.setAttribute("aria-label", "Sessions");
+  const members = laid.map((s) => {
+    const card = buildSessionCard(s);
+    const li = el("li");
+    li.style.display = "contents";
+    li.append(card);
+    list.append(li);
+    return { session: s, card };
+  });
+  rail.append(list);
+
+  const clusters = buildClusters(members);
+
+  // Decide, per cluster, whether columns fit. Columns require the widest
+  // cluster to still give each column at least MIN_COLUMN_WIDTH.
+  const railWidth = rail.clientWidth - LEFT_INSET;
+  for (const cluster of clusters) {
+    const maxCols = Math.max(...cluster.members.map((m) => m.session.cols));
+    const columnWidth = maxCols > 0 ? railWidth / maxCols : railWidth;
+    cluster.stacked = maxCols > 1 && columnWidth < MIN_COLUMN_WIDTH;
+  }
+
+  // Apply column widths for cluster members that will be laid out side by side.
+  for (const cluster of clusters) {
+    if (cluster.stacked) continue;
+    for (const { session: s, card } of cluster.members) {
+      if (s.cols <= 1) continue;
+      card.classList.add("ev--overlap");
+      const gapPct = 2;
+      const w = (100 - gapPct * (s.cols - 1)) / s.cols;
+      card.style.left = `calc(${LEFT_INSET}px + (100% - ${LEFT_INSET}px) * ${(s.col * (w + gapPct)) / 100})`;
+      card.style.width = `calc((100% - ${LEFT_INSET}px) * ${w / 100})`;
+      card.style.right = "auto";
+    }
+  }
+
+  // ---- measure & compute per-cluster geometry ----
+  // For column clusters: height = tallest column's natural content height.
+  // For stacked clusters: height = sum of all members' natural heights + gaps.
+  const offsets: { at: number; extra: number }[] = [];
+  for (const cluster of clusters) {
+    const proportional = (cluster.end - cluster.start) * base.pxMin - CARD_GAP;
+
+    if (cluster.stacked) {
+      let total = 0;
+      cluster.members.forEach((m, idx) => {
+        const h = Math.max(m.card.scrollHeight, 34);
+        m.stackTop = total;
+        m.stackHeight = h;
+        total += h + (idx < cluster.members.length - 1 ? STACK_GAP : 0);
+      });
+      cluster.resolvedHeight = Math.max(total, proportional, 34);
+    } else {
+      let needed = 0;
+      for (const m of cluster.members) needed = Math.max(needed, m.card.scrollHeight);
+      cluster.resolvedHeight = Math.max(needed, proportional, 34);
+    }
+
+    const extra = Math.max(0, cluster.resolvedHeight - Math.max(proportional, 34));
+    if (extra > 0) offsets.push({ at: cluster.end, extra });
+  }
+  offsets.sort((a, b) => a.at - b.at);
+
+  // Offset-aware vertical map: add all expansion accrued from clusters that
+  // ended at or before `min`, keeping the now-line and ticks aligned.
+  const offsetBefore = (min: number): number =>
+    offsets.reduce((sum, o) => (o.at <= min ? sum + o.extra : sum), 0);
+  const y = (min: number): number => (min - base.dayStart) * base.pxMin + offsetBefore(min);
+
+  const g: RailGeometry = {
+    dayStart: base.dayStart,
+    dayEnd: base.dayEnd,
+    pxMin: base.pxMin,
+    y,
+    height: base.height + offsets.reduce((sum, o) => sum + o.extra, 0),
+  };
   rail.style.height = `${g.height}px`;
+
+  // ---- pass 2: position cards with the offset-aware map ----
+  for (const cluster of clusters) {
+    const clusterTop = y(cluster.start);
+    const clusterHeight = cluster.resolvedHeight ?? 34;
+    for (const member of cluster.members) {
+      const { session: s, card } = member;
+      if (cluster.stacked) {
+        const stackTop = member.stackTop ?? 0;
+        const stackHeight = member.stackHeight ?? 34;
+        card.classList.add("ev--stacked");
+        card.style.left = `${LEFT_INSET}px`;
+        card.style.right = "0";
+        card.style.width = "";
+        card.style.top = `${clusterTop + stackTop}px`;
+        card.style.height = `${stackHeight}px`;
+        if (stackHeight < 90) card.classList.add("ev--short");
+      } else {
+        if (clusterHeight < 90 || s.cols > 1) card.classList.add("ev--short");
+        card.style.top = `${clusterTop}px`;
+        card.style.height = `${Math.max(clusterHeight - CARD_GAP, 34)}px`;
+      }
+    }
+  }
 
   // Ticks
   const tickTimes = [
@@ -153,7 +298,7 @@ export function renderRail(rail: HTMLElement, payload: DayPayload): RailGeometry
   ].sort();
   for (const t of tickTimes) {
     const tick = el("div", "tick");
-    tick.style.top = `${g.y(toMin(t))}px`;
+    tick.style.top = `${y(toMin(t))}px`;
     tick.append(el("span", "tick__label", formatTime(t)));
     tick.setAttribute("aria-hidden", "true");
     rail.append(tick);
@@ -164,37 +309,9 @@ export function renderRail(rail: HTMLElement, payload: DayPayload): RailGeometry
     renderBreak(rail, g, br);
   }
 
-  // Sessions
-  const list = el("ol", "ev-list");
-  list.setAttribute("aria-label", "Sessions");
-  for (const s of laid) {
-    const top = g.y(toMin(s.start));
-    const rawHeight = (toMin(s.end) - toMin(s.start)) * g.pxMin;
-    const narrow = s.cols > 1;
-
-    const li = el("li");
-    li.style.display = "contents";
-    const card = buildSessionCard(s);
-    if (rawHeight < 90 || narrow) card.classList.add("ev--short");
-    card.style.top = `${top}px`;
-    card.style.height = `${Math.max(rawHeight - 6, 34)}px`;
-
-    if (s.cols > 1) {
-      card.classList.add("ev--overlap");
-      const gapPct = 2;
-      const w = (100 - gapPct * (s.cols - 1)) / s.cols;
-      card.style.left = `calc(12px + (100% - 12px) * ${(s.col * (w + gapPct)) / 100})`;
-      card.style.width = `calc((100% - 12px) * ${w / 100})`;
-      card.style.right = "auto";
-    }
-
-    li.append(card);
-    list.append(li);
-  }
-  rail.append(list);
-
   return g;
 }
+
 
 function renderBreak(rail: HTMLElement, g: RailGeometry, br: ScheduleBreak): void {
   const start = toMin(br.start);
@@ -202,7 +319,7 @@ function renderBreak(rail: HTMLElement, g: RailGeometry, br: ScheduleBreak): voi
   if (!Number.isFinite(start) || !Number.isFinite(end)) return;
   const gap = el("div", "gap");
   gap.style.top = `${g.y(start)}px`;
-  gap.style.height = `${(end - start) * g.pxMin}px`;
+  gap.style.height = `${g.y(end) - g.y(start)}px`;
   gap.setAttribute("aria-hidden", "true");
   gap.append(el("span", "gap__label", br.label));
   rail.append(gap);

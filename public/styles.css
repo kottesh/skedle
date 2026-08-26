@@ -623,6 +623,19 @@ body {
   font-size: 0.68rem;
 }
 
+/* Stacked overlap (narrow screens): full-width cards laid out vertically.
+   They have room, so keep normal typography and layout. */
+.ev--stacked .ev__top {
+  flex-wrap: wrap;
+  gap: 0.2rem 0.4rem;
+}
+.ev--stacked .ev__kind {
+  margin-left: auto;
+}
+.ev--stacked .ev__dur {
+  display: none;
+}
+
 .now {
   position: absolute;
   left: 0;

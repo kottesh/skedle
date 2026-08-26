@@ -118,13 +118,34 @@ describe("renderRail", () => {
     gaps.forEach((gap) => expect(gap.getAttribute("aria-hidden")).toBe("true"));
   });
 
-  it("marks overlapping cards with ev--overlap (not inline-style selectors)", () => {
+  it("uses side-by-side columns (ev--overlap) when the rail is wide", () => {
+    Object.defineProperty(rail, "clientWidth", { configurable: true, value: 680 });
     const payload = basePayload([
       session({ start: "09:00", end: "10:50" }),
       session({ start: "09:55", end: "11:00" }),
     ]);
     renderRail(rail, payload);
     expect(rail.querySelectorAll("article.ev--overlap").length).toBe(2);
+    expect(rail.querySelectorAll("article.ev--stacked").length).toBe(0);
+  });
+
+  it("stacks overlapping cards vertically when columns would be too narrow", () => {
+    // Three concurrent sessions on a 320px rail -> ~107px columns -> stack.
+    Object.defineProperty(rail, "clientWidth", { configurable: true, value: 320 });
+    const payload = basePayload([
+      session({ start: "14:55", end: "15:50", title: "A" }),
+      session({ start: "14:55", end: "15:50", title: "B" }),
+      session({ start: "14:55", end: "15:50", title: "C" }),
+    ]);
+    renderRail(rail, payload);
+    expect(rail.querySelectorAll("article.ev--stacked").length).toBe(3);
+    expect(rail.querySelectorAll("article.ev--overlap").length).toBe(0);
+    // Stacked cards span the full width (left inset only, no narrow column width).
+    const cards = [...rail.querySelectorAll<HTMLElement>("article.ev--stacked")];
+    cards.forEach((c) => {
+      expect(c.style.left).toBe("12px");
+      expect(c.style.right).toBe("0px");
+    });
   });
 });
 
