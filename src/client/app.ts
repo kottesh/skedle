@@ -7,7 +7,14 @@ import {
   readAuth,
   type AuthState,
 } from "./auth";
-import { addDays, formatTime, nowMinutes, parseYmd, todayYmd, toMin } from "./date";
+import {
+  addDays,
+  formatTime,
+  nowMinutes,
+  parseYmd,
+  todayYmd,
+  toMin,
+} from "./date";
 import { focusableWithin, getElement, getForm, getInput } from "./dom";
 import {
   railGeometry,
@@ -77,16 +84,20 @@ function setHeader(payload: DayPayload | null): void {
   const d = parseYmd(state.date);
   getElement("weekday").textContent = WEEKDAY[d.getDay()] ?? "—";
   getElement("d-day").textContent = String(d.getDate()).padStart(2, "0");
-  getElement("d-mon").textContent = `${MON[d.getMonth()] ?? ""} ${d.getFullYear()}`;
+  getElement("d-mon").textContent =
+    `${MON[d.getMonth()] ?? ""} ${d.getFullYear()}`;
 
   const first = firstName(state.auth.name);
   const greetEl = getElement("greet");
   greetEl.hidden = !first;
-  if (first) greetEl.textContent = `${greetingWord()}, ${smartTitleCase(first)}`;
+  if (first)
+    greetEl.textContent = `${greetingWord()}, ${smartTitleCase(first)}`;
 
   const student = payload?.student;
   getElement("ctx").textContent =
-    student && student.course ? `${student.course} · sem ${student.semester}` : "skedle";
+    student && student.course
+      ? `${student.course} · sem ${student.semester}`
+      : "skedle";
 
   const count = payload?.sessions?.length ?? 0;
   const countEl = getElement("count");
@@ -189,7 +200,7 @@ function refreshLoginState(): void {
       ? smartTitleCase(state.auth.name)
       : "Signed in";
   }
-  setLoginNote(signed ? "Signed in on this browser session." : "Not signed in.");
+  setLoginNote(signed ? "Signed in on this browser." : "Not signed in.");
   loginStatusEl.hidden = false;
   tokEl?.classList.toggle("tok--signed", signed);
   trigger.setAttribute("aria-label", signed ? "Account, signed in" : "Account");
@@ -271,7 +282,10 @@ function handleLoadError(err: unknown): void {
     if (hadToken) {
       setLoginNote("Your session expired. Please sign in again.");
       setLoginSheet(true);
-      showNotice("Session expired", "Please sign in again to view your timetable.");
+      showNotice(
+        "Session expired",
+        "Please sign in again to view your timetable.",
+      );
     } else {
       showNotice(
         err.message || "Please log in to view your timetable.",
@@ -286,7 +300,9 @@ function handleLoadError(err: unknown): void {
     return;
   }
   const message =
-    err instanceof ApiRequestError ? err.message : "Something went wrong. Try again.";
+    err instanceof ApiRequestError
+      ? err.message
+      : "Something went wrong. Try again.";
   showNotice(message, "Try picking the day again.");
 }
 
@@ -297,7 +313,8 @@ function paintNow(g: RailGeometry): void {
     return;
   }
   const nm = nowMinutes();
-  const inRange = state.date === todayYmd() && nm >= g.dayStart && nm <= g.dayEnd;
+  const inRange =
+    state.date === todayYmd() && nm >= g.dayStart && nm <= g.dayEnd;
 
   for (const ev of rail.querySelectorAll<HTMLElement>(".ev")) {
     const start = toMin(ev.dataset.start ?? "");
@@ -345,9 +362,17 @@ function maybeScrollToNow(g: RailGeometry): void {
   requestAnimationFrame(() => {
     const line = rail.querySelector<HTMLElement>(".now");
     if (!line) return;
-    const y = line.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.32;
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    window.scrollTo({ top: Math.max(0, y), behavior: reduce ? "auto" : "smooth" });
+    const y =
+      line.getBoundingClientRect().top +
+      window.scrollY -
+      window.innerHeight * 0.32;
+    const reduce = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+    window.scrollTo({
+      top: Math.max(0, y),
+      behavior: reduce ? "auto" : "smooth",
+    });
   });
 }
 
@@ -378,7 +403,9 @@ function wire(): void {
       await selectDate(state.date);
     } catch (err) {
       const msg =
-        err instanceof ApiRequestError ? err.message : "Login failed. Try again.";
+        err instanceof ApiRequestError
+          ? err.message
+          : "Login failed. Try again.";
       setLoginNote(msg);
     } finally {
       submitBtn.disabled = false;
@@ -410,9 +437,18 @@ function wire(): void {
     const value = (e.target as HTMLInputElement).value;
     if (value) void selectDate(value);
   });
-  getElement("prev").addEventListener("click", () => void selectDate(addDays(state.date, -1)));
-  getElement("next").addEventListener("click", () => void selectDate(addDays(state.date, 1)));
-  getElement("today").addEventListener("click", () => void selectDate(todayYmd()));
+  getElement("prev").addEventListener(
+    "click",
+    () => void selectDate(addDays(state.date, -1)),
+  );
+  getElement("next").addEventListener(
+    "click",
+    () => void selectDate(addDays(state.date, 1)),
+  );
+  getElement("today").addEventListener(
+    "click",
+    () => void selectDate(todayYmd()),
+  );
 }
 
 // ---------- boot ----------
