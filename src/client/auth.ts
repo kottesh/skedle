@@ -1,7 +1,8 @@
 import type { LoginResponse } from "../contracts";
 
-// Session-scoped storage: the token does not survive a full browser restart,
-// which limits the blast radius of an XSS issue compared to localStorage.
+// Persistent storage: the CIT-issued token is long-lived, so we keep it in
+// localStorage. sessionStorage was clearing the token whenever the tab was
+// closed and reopened, forcing an unnecessary re-login every time.
 const TOKEN_KEY = "cit_api_token";
 const NAME_KEY = "cit_user_name";
 
@@ -12,7 +13,7 @@ export interface AuthState {
 
 function safeGet(key: string): string {
   try {
-    return sessionStorage.getItem(key) ?? "";
+    return localStorage.getItem(key) ?? "";
   } catch {
     return "";
   }
@@ -20,7 +21,7 @@ function safeGet(key: string): string {
 
 function safeSet(key: string, value: string): void {
   try {
-    sessionStorage.setItem(key, value);
+    localStorage.setItem(key, value);
   } catch {
     /* storage unavailable (private mode) — session stays in memory only */
   }
@@ -28,7 +29,7 @@ function safeSet(key: string, value: string): void {
 
 function safeRemove(key: string): void {
   try {
-    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
   } catch {
     /* ignore */
   }
